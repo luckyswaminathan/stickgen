@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, DragEvent } from 'react';
-import { Upload, Image as ImageIcon, Loader } from 'lucide-react';
+import { Upload, Image as ImageIcon, Loader, ChevronDown } from 'lucide-react';
 
 export default function ImageUploadApp() {
   const [preview, setPreview] = useState<string | null>(null);
@@ -9,6 +9,18 @@ export default function ImageUploadApp() {
   const [uploadStatus, setUploadStatus] = useState('');
   const [generateStatus, setGenerateStatus] = useState('');
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [selectedTheme, setSelectedTheme] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  const cartoonThemes = [
+    { id: 'pixar', name: 'Pixar Style', description: 'Vibrant 3D animation style like Toy Story' },
+    { id: 'anime', name: 'Anime', description: 'Japanese animation style' },
+    { id: 'disney', name: 'Disney Classic', description: 'Traditional Disney animation style' },
+    { id: 'southpark', name: 'South Park', description: 'Simple, quirky paper cut-out style' },
+    { id: 'simpsons', name: 'The Simpsons', description: 'Yellow-skinned cartoon style' },
+    { id: 'pokemon', name: 'Pokémon', description: 'Bright anime style with bold outlines' },
+    { id: 'ghibli', name: 'Studio Ghibli', description: 'Soft, detailed anime style' },
+  ];
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
@@ -60,8 +72,8 @@ export default function ImageUploadApp() {
   };
   
   const generateImage = async () => {
-    if (!prompt) {
-      setGenerateStatus('Please enter a prompt');
+    if (!selectedTheme) {
+      setGenerateStatus('Please select a theme');
       return;
     }
     
@@ -92,94 +104,176 @@ export default function ImageUploadApp() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow p-8">
-        <h1 className="text-2xl font-semibold mb-8 text-gray-900">Image Generator</h1>
-        
-        {/* Upload Section */}
-        <div className="mb-8 pb-8 border-b border-gray-100">
-          <h2 className="text-sm font-semibold mb-4 text-gray-700">Upload Reference Image</h2>
-          
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleDrop}
-            className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center cursor-pointer hover:border-[#ff6b6b] hover:bg-gray-50 transition-colors"
-          >
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept="image/*"
-              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-            />
+    <div className="min-h-screen bg-[#F6F6EF]">
+      <div className="container mx-auto max-w-3xl px-4 py-12">
+        {/* YC-style Header - Now Centered */}
+        <header className="text-center mb-12">
+          <h1 className="text-[32px] font-bold text-[#FF6600]">StickGen</h1>
+          <p className="text-[#666666] mt-2 text-lg">
+            Turn any stick figure into a cartoon
+          </p>
+        </header>
+
+        {/* Main Content - Properly Centered */}
+        <div className="space-y-8 w-full">
+          {/* Upload Section */}
+          <section className="bg-white p-8 rounded shadow-sm">
+            <h2 className="text-xl font-bold text-[#2D2D2D] mb-6 text-center">
+              1. Upload Your Image
+            </h2>
             
-            {!preview ? (
-              <div className="flex flex-col items-center text-gray-500">
-                <Upload className="w-8 h-8 mb-2" />
-                <span>Drag and drop an image here or click to upload</span>
-              </div>
-            ) : (
-              <img src={preview} alt="Preview" className="max-h-64 mx-auto rounded-lg" />
-            )}
-          </div>
-          
-          {isUploading && (
-            <div className="flex items-center mt-4 text-gray-600">
-              <Loader className="w-4 h-4 mr-2 animate-spin" />
-              Uploading...
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              className="border-2 border-dashed border-[#EAEAEA] rounded-lg 
+                       bg-[#FAFAFA] p-12 text-center cursor-pointer 
+                       hover:border-[#FF6600] hover:bg-white transition-colors 
+                       duration-200 mx-auto max-w-2xl"
+            >
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+              />
+              
+              {!preview ? (
+                <div className="flex flex-col items-center justify-center text-[#666666]">
+                  <Upload className="w-12 h-12 mb-4 text-[#FF6600]" />
+                  <span className="text-base">Drag and drop your image here, or click to browse</span>
+                </div>
+              ) : (
+                <img src={preview} alt="Preview" className="max-h-64 mx-auto rounded-lg" />
+              )}
             </div>
-          )}
-          
-          {uploadStatus && (
-            <div className={`mt-4 text-sm ${uploadStatus.includes('Error') ? 'text-red-500' : 'text-green-500'}`}>
-              {uploadStatus}
-            </div>
-          )}
-        </div>
-        
-        {/* Generate Section */}
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold mb-4 text-gray-700">Generate New Image</h2>
-          
-          <input
-            type="text"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe what you want to generate"
-            className="w-full px-4 py-2 mb-4 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#ff6b6b] focus:border-transparent"
-          />
-          
-          <button
-            onClick={generateImage}
-            disabled={isGenerating}
-            className="bg-[#ff6b6b] text-white px-6 py-2 rounded-lg hover:bg-[#ff5252] transition-colors disabled:opacity-50"
-          >
-            {isGenerating ? (
-              <div className="flex items-center">
+            
+            {isUploading && (
+              <div className="flex items-center justify-center mt-4 text-[#666666]">
                 <Loader className="w-4 h-4 mr-2 animate-spin" />
-                Generating...
+                Processing your image...
               </div>
-            ) : (
-              'Generate'
             )}
-          </button>
+            
+            {uploadStatus && (
+              <div className={`mt-4 text-center ${
+                uploadStatus.includes('Error') ? 'text-[#FF3B30]' : 'text-[#28CD41]'
+              }`}>
+                {uploadStatus}
+              </div>
+            )}
+          </section>
           
-          {generateStatus && (
-            <div className={`mt-4 text-sm ${generateStatus.includes('Error') ? 'text-red-500' : 'text-green-500'}`}>
-              {generateStatus}
+          {/* Generate Section */}
+          <section className="bg-white p-8 rounded shadow-sm">
+            <h2 className="text-xl font-bold text-[#2D2D2D] mb-6 text-center">
+              2. Customize Theme
+            </h2>
+            
+            <div className="max-w-2xl mx-auto space-y-4">
+              <div className="relative">
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="w-full px-6 py-4 text-left text-[#2D2D2D] bg-[#FAFAFA] 
+                            border border-[#EAEAEA] rounded-lg hover:border-[#FF6600]
+                            focus:outline-none focus:border-[#FF6600] transition-colors
+                            flex items-center justify-between"
+                >
+                  <span className={selectedTheme ? 'text-[#2D2D2D]' : 'text-[#999999]'}>
+                    {selectedTheme ? 
+                      cartoonThemes.find(theme => theme.id === selectedTheme)?.name : 
+                      'Select a cartoon style'}
+                  </span>
+                  <ChevronDown 
+                    className={`w-5 h-5 text-[#666666] transition-transform duration-200 
+                            ${isDropdownOpen ? 'transform rotate-180' : ''}`}
+                  />
+                </button>
+                
+                {isDropdownOpen && (
+                  <div className="absolute z-10 w-full mt-2 bg-white border border-[#EAEAEA] 
+                                rounded-lg shadow-lg overflow-hidden">
+                    {cartoonThemes.map((theme) => (
+                      <div
+                        key={theme.id}
+                        onClick={() => {
+                          setSelectedTheme(theme.id);
+                          setIsDropdownOpen(false);
+                        }}
+                        className="flex flex-col p-4 cursor-pointer hover:bg-[#FAFAFA] 
+                                border-b border-[#EAEAEA] last:border-b-0"
+                      >
+                        <span className="font-medium text-[#2D2D2D]">{theme.name}</span>
+                        <span className="text-sm text-[#666666] mt-1">{theme.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-center">
+                <button
+                  onClick={generateImage}
+                  disabled={isGenerating || !selectedTheme}
+                  className="w-full sm:w-auto px-8 py-4 bg-[#FF6600] text-white 
+                          font-medium rounded-lg hover:bg-[#FF7F33] 
+                          transition-colors duration-200 disabled:opacity-50
+                          disabled:cursor-not-allowed"
+                >
+                  {isGenerating ? (
+                    <div className="flex items-center justify-center">
+                      <Loader className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </div>
+                  ) : (
+                    'Generate Sticker'
+                  )}
+                </button>
+              </div>
             </div>
+            
+            {generateStatus && (
+              <div className={`mt-4 text-center ${
+                generateStatus.includes('Error') ? 'text-[#FF3B30]' : 'text-[#28CD41]'
+              }`}>
+                {generateStatus}
+              </div>
+            )}
+          </section>
+          
+          {/* Result Section */}
+          {generatedImage && (
+            <section className="bg-white p-8 rounded shadow-sm">
+              <h2 className="text-xl font-bold text-[#2D2D2D] mb-6 text-center">
+                3. Your Generated Sticker
+              </h2>
+              <div className="max-w-2xl mx-auto">
+                <img 
+                  src={generatedImage} 
+                  alt="Generated Sticker" 
+                  className="w-full rounded-lg shadow-sm" 
+                />
+                <div className="flex justify-center mt-6">
+                  <button
+                    className="px-8 py-3 border border-[#EAEAEA] rounded-lg 
+                             text-[#666666] hover:border-[#FF6600] 
+                             hover:text-[#FF6600] transition-colors duration-200"
+                  >
+                    Download Sticker
+                  </button>
+                </div>
+              </div>
+            </section>
           )}
         </div>
-        
-        {/* Result Section */}
-        {generatedImage && (
-          <div className="mt-8">
-            <h2 className="text-sm font-semibold mb-4 text-gray-700">Generated Image</h2>
-            <img src={generatedImage} alt="Generated" className="w-full rounded-lg" />
-          </div>
-        )}
+
+        {/* Footer */}
+        <footer className="mt-12 pt-8 border-t border-[#EAEAEA] text-center text-[#666666]">
+          <p>© 2024 StickGen · <a href="#" className="hover:text-[#FF6600]">About</a> · <a href="#" className="hover:text-[#FF6600]">Contact</a></p>
+        </footer>
       </div>
     </div>
+
   );
 }
