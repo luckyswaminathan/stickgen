@@ -1,0 +1,105 @@
+.walking-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100px;
+  overflow: hidden;
+}
+
+.walking-stick-figure {
+  width: 40px;
+  height: 80px;
+  position: absolute;
+  bottom: 0;
+  animation: walk 10s linear infinite;
+}
+
+.head {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: black;
+  position: absolute;
+  top: 0;
+  left: 10px;
+}
+
+.body {
+  width: 2px;
+  height: 30px;
+  background-color: black;
+  position: absolute;
+  top: 20px;
+  left: 19px;
+}
+
+.arm {
+  width: 2px;
+  height: 20px;
+  background-color: black;
+  position: absolute;
+  top: 22px;
+}
+
+.arm.left {
+  left: 19px;
+  transform-origin: top center;
+  animation: left-arm-swing 1s infinite;
+}
+
+.arm.right {
+  right: 19px;
+  transform-origin: top center;
+  animation: right-arm-swing 1s infinite;
+}
+
+.leg {
+  width: 2px;
+  height: 30px;
+  background-color: black;
+  position: absolute;
+  top: 50px;
+}
+
+.leg.left {
+  left: 19px;
+  transform-origin: top center;
+  animation: left-leg-swing 1s infinite;
+}
+
+.leg.right {
+  right: 19px;
+  transform-origin: top center;
+  animation: right-leg-swing 1s infinite;
+}
+
+@keyframes walk {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100vw);
+  }
+}
+
+@keyframes left-arm-swing {
+  0%, 100% { transform: rotate(30deg); }
+  50% { transform: rotate(-30deg); }
+}
+
+@keyframes right-arm-swing {
+  0%, 100% { transform: rotate(-30deg); }
+  50% { transform: rotate(30deg); }
+}
+
+@keyframes left-leg-swing {
+  0%, 100% { transform: rotate(-30deg); }
+  50% { transform: rotate(30deg); }
+}
+
+@keyframes right-leg-swing {
+  0%, 100% { transform: rotate(30deg); }
+  50% { transform: rotate(-30deg); }
+}
+
