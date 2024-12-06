@@ -21,7 +21,7 @@ export function Header() {
               </Link>
             </li>
             <li>
-              <Link href="/onboard">
+              <Link href="/login">
                 <Button variant="outline">Sign In</Button>
               </Link>
             </li>

@@ -1,44 +1,85 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
-// This would typically come from an API or database
-const cartoonPanels = [
-  { id: 1, title: 'Stick Figure Adventure', imageUrl: '/placeholder.svg?height=300&width=300' },
-  { id: 2, title: 'Office Shenanigans', imageUrl: '/placeholder.svg?height=300&width=300' },
-  { id: 3, title: 'Superhero Sticks', imageUrl: '/placeholder.svg?height=300&width=300' },
-  { id: 4, title: 'Stick Sports', imageUrl: '/placeholder.svg?height=300&width=300' },
-  { id: 5, title: 'Stick Family Vacation', imageUrl: '/placeholder.svg?height=300&width=300' },
-  { id: 6, title: 'Stick School Days', imageUrl: '/placeholder.svg?height=300&width=300' },
-]
+interface CartoonPanel {
+  id: string
+  title: string
+  imageUrl: string
+  description: string
+}
 
-export default function GalleryPage() {
+export default function CartoonPanelPage({ params }: { params: { id: string } }) {
+  const [panel, setPanel] = useState<CartoonPanel | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    const fetchPanel = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:8000/gallery/${params.id}`)
+        if (!response.ok) {
+          throw new Error('Failed to fetch panel')
+        }
+        const data = await response.json()
+        setPanel(data)
+      } catch (err) {
+        setError('Error fetching cartoon panel. Please try again later.')
+        console.error('Error fetching panel:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPanel()
+  }, [params.id])
+
+  if (isLoading) {
+    return <div className="container mx-auto px-4 py-8">Loading...</div>
+  }
+
+  if (error || !panel) {
+    return <div className="container mx-auto px-4 py-8">{error || 'Cartoon panel not found'}</div>
+  }
+
+  const handleDownload = () => {
+    // Implement download functionality
+    console.log('Downloading image:', panel.imageUrl)
+  }
+
+  const handleShare = () => {
+    // Implement share functionality
+    console.log('Sharing panel:', panel.id)
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">StickGen Gallery</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {cartoonPanels.map((panel) => (
-          <div key={panel.id} className="border border-gray-200 rounded-lg overflow-hidden">
-            <Image
-              src={panel.imageUrl}
-              alt={panel.title}
-              width={300}
-              height={300}
-              className="w-full h-auto"
-            />
-            <div className="p-4">
-              <h2 className="text-xl font-semibold mb-2">{panel.title}</h2>
-              <Link href={`/gallery/${panel.id}`}>
-                <Button variant="outline" className="w-full">View Details</Button>
-              </Link>
-            </div>
+      <h1 className="text-3xl font-bold mb-6">{panel.title}</h1>
+      <div className="grid md:grid-cols-2 gap-8">
+        <div>
+          <Image
+            src={panel.imageUrl}
+            alt={panel.title}
+            width={600}
+            height={600}
+            className="w-full h-auto rounded-lg shadow-md"
+          />
+        </div>
+        <div>
+          <p className="text-lg mb-4">{panel.description}</p>
+          <div className="space-y-4">
+            <Button className="w-full" onClick={handleDownload}>Download Image</Button>
+            <Button variant="outline" className="w-full" onClick={handleShare}>Share</Button>
+            <Button variant="ghost" className="w-full" onClick={() => router.push('/gallery')}>
+              Back to Gallery
+            </Button>
           </div>
-        ))}
-      </div>
-      <div className="mt-8 text-center">
-        <Link href="/upload">
-          <Button>Create Your Own</Button>
-        </Link>
+        </div>
       </div>
     </div>
   )

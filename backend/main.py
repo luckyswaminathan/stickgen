@@ -157,6 +157,7 @@ async def upload_file(file: UploadFile = File(...), user_id: str = None):
 async def get_gallery(user_id: str = None):
     try:
         # First, query DynamoDB for the animations
+        print(f"Getting gallery for user_id: {user_id}")
         if user_id:
             response = table.query(
                 KeyConditionExpression='user_id = :uid',
