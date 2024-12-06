@@ -1,13 +1,38 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+import logging
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 import boto3
 import os
 from datetime import datetime, timezone
 import uuid
+import base64
 from config import get_settings
+from fastapi.responses import JSONResponse
+from botocore.exceptions import ClientError
+from starlette.middleware.base import BaseHTTPMiddleware
 
 app = FastAPI()
+logging.getLogger("uvicorn.access").handlers = []
+uvicorn_logger = logging.getLogger("uvicorn.access")
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+uvicorn_logger.addHandler(handler)
 
+class IgnorePingLogsMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/ping":
+            return await call_next(request)
+        uvicorn_logger.info(f"{request.method} {request.url.path}")
+        response = await call_next(request)
+        return response
+class IgnorePingFilter(logging.Filter):
+    def filter(self, record):
+        return "GET /ping" not in record.getMessage()
+
+# Apply the filter to uvicorn access logger
+logging.getLogger("uvicorn.access").addFilter(IgnorePingFilter())
+    
+app.add_middleware(IgnorePingLogsMiddleware)
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -41,6 +66,14 @@ table = dynamodb.Table('stickgen_animations')
 @app.get("/")
 async def root():
     return {"message": "Welcome to StickGen API"}
+
+@app.get("/ping")
+async def ping(id: str = Query(None), port: int = Query(None)):
+    return {
+        "status": "ok",
+        "id": id,
+        "port": port
+    }
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...), user_id: str = None):
@@ -85,7 +118,7 @@ async def upload_file(file: UploadFile = File(...), user_id: str = None):
             animation_data = {
                 'animation_id': animation_id,
                 'creation_id': creation_id,
-                'user_id': user_id or 'anonymous',
+                'user_id': user_id,
                 'filename': file.filename,
                 'safe_filename': safe_filename,
                 'content_type': file.content_type,
@@ -120,9 +153,10 @@ async def upload_file(file: UploadFile = File(...), user_id: str = None):
             detail=f"An error occurred while processing the file: {str(e)}"
         )
 
-@app.get("/gallery")
+@app.get("/gallery/{user_id}")
 async def get_gallery(user_id: str = None):
     try:
+        # First, query DynamoDB for the animations
         if user_id:
             response = table.query(
                 KeyConditionExpression='user_id = :uid',
@@ -131,15 +165,51 @@ async def get_gallery(user_id: str = None):
                 }
             )
         else:
-            # Get all animations
-            response = table.scan()
+            response = {}
+        
+        animations = response.get('Items', [])
+        
+        # For each animation, get the image from S3
 
-        return {
+        for animation in animations:
+            try:
+                # Get the object from S3
+                s3_key = f"animations/{animation['user_id']}/{animation['safe_filename']}"
+                s3_response = s3_client.get_object(
+                    Bucket=settings.S3_BUCKET_NAME,
+                    Key=s3_key
+                )
+                
+                # Read the image data and convert to base64
+                image_data = s3_response['Body'].read()
+                base64_image = base64.b64encode(image_data).decode('utf-8')
+                
+                # Add the base64 image data to the animation record
+                animation['image_data'] = base64_image
+                
+                # Add content type for proper display
+                animation['content_type'] = s3_response['ContentType']
+                
+            except ClientError as e:
+                print(f"Error fetching image from S3: {str(e)}")
+                animation['image_data'] = None
+                animation['error'] = "Failed to fetch image"
+
+        return JSONResponse(content={
             "status": "success",
-            "animations": response.get('Items', [])
-        }
+            "animations": [{
+                "animation_id": anim["animation_id"],
+                "user_id": anim["user_id"],
+                "filename": anim["filename"],
+                "created_at": anim["created_at"],
+                "content_type": anim.get("content_type"),
+                "image_data": anim.get("image_data"),
+                "s3_url": anim["s3_url"]
+            } for anim in animations]
+        })
 
     except Exception as e:
+        print(f"Gallery error: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Error retrieving animations: {str(e)}"
