@@ -7,11 +7,9 @@ import { useAuth } from '../hooks/useAuth'
 import { signOut } from '../lib/auth'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export default function Home() {
-  const { user } = useAuth()
-  const supabase = createClientComponentClient()
+  const { user, supabase } = useAuth()
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(true)
 
@@ -48,7 +46,15 @@ export default function Home() {
           <Button variant="outline" className="w-full h-16 text-lg">View Gallery</Button>
         </Link>
       </div>
-  
+      {user && (
+        <Button 
+          onClick={handleSignOut} 
+          variant="ghost" 
+          className="mt-4 z-10"
+        >
+          Sign Out
+        </Button>
+      )}
       <div className="walking-container">
         <WalkingStickFigure />
       </div>

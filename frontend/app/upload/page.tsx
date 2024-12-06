@@ -1,8 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { WalkingStickFigure } from '@/components/walking-stick-figure'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { useRouter } from 'next/navigation'
+
 const StandingStickFigure = () => {
   return (
     <div className="flex justify-center h-[100px] mb-8 overflow-hidden">
@@ -46,12 +49,26 @@ const UploadIcon = () => (
   </svg>
 )
 
-
 export default function Upload() {
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [user, setUser] = useState<any>(null)
+  const supabase = createClientComponentClient()
+  const router = useRouter()
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUser(user)
+      } else {
+        router.push('/login')
+      }
+    }
+    checkUser()
+  }, [supabase, router])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -68,18 +85,26 @@ export default function Upload() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file) return
+    if (!file || !user) return
 
     setLoading(true)
     setError(null)
 
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('user_id', 'default-user') // You can update this with actual user ID if you have authentication
+    formData.append('user_id', user.id)
 
     try {
-      const response = await fetch('http://localhost:8000/upload', {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        throw new Error('No active session')
+      }
+
+      const response = await fetch('http://127.0.0.1:8000/upload', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: formData,
       })
 
@@ -104,6 +129,10 @@ export default function Upload() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!user) {
+    return <div>Loading...</div>
   }
 
   return (
@@ -176,3 +205,4 @@ export default function Upload() {
     </main>
   )
 }
+
