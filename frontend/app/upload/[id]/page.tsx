@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { WalkingStickFigure } from '@/components/walking-stick-figure'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { useRouter } from 'next/navigation'
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select"
 
 const StandingStickFigure = () => {
   return (
@@ -55,6 +56,8 @@ export default function Upload() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
+  const [style, setStyle] = useState<string>('anime')
+  const [inputText, setInputText] = useState<string>('A man in a suit')
   const supabase = createClientComponentClient()
   const router = useRouter()
 
@@ -186,6 +189,30 @@ export default function Upload() {
             </label>
           </div>
 
+          <Select
+            value={style}
+            onValueChange={setStyle}
+            disabled={loading}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a style" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="anime">Anime</SelectItem>
+              <SelectItem value="cartoon">Cartoon</SelectItem>
+              <SelectItem value="realistic">Realistic</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <textarea
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Enter additional details..."
+            className="w-full p-2 border rounded-md"
+            rows={4}
+            disabled={loading}
+          />
+
           {error && (
             <div className="text-red-500 text-sm text-center">
               {error}
@@ -210,4 +237,6 @@ export default function Upload() {
     </main>
   )
 }
+
+
 

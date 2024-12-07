@@ -1,5 +1,5 @@
 import logging
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
 import boto3
 import os
@@ -10,6 +10,10 @@ from config import get_settings
 from fastapi.responses import JSONResponse
 from botocore.exceptions import ClientError
 from starlette.middleware.base import BaseHTTPMiddleware
+from typing import Optional
+import json
+from helpers.sdxlinfer import generate_styled_image
+from pydantic import BaseModel
 
 app = FastAPI()
 # logging.getLogger("uvicorn.access").handlers = []
@@ -75,7 +79,7 @@ async def ping(id: str = Query(None), port: int = Query(None)):
     }
 
 @app.post("/upload/{user_id}")
-async def upload_file(file: UploadFile = File(...), user_id: str = None):
+async def upload_file(file: UploadFile = File(...), prompt: Optional[str] = Body(None), user_id: str = None, style_id: str = None):
     print(f"Uploading file:")
     try:
         # Validate file type
@@ -86,20 +90,20 @@ async def upload_file(file: UploadFile = File(...), user_id: str = None):
                 detail="File type not allowed. Please upload an image or video file."
             )
 
-        # Generate unique IDs
-        animation_id = str(uuid.uuid4())
-        file_extension = os.path.splitext(file.filename)[1].lower()
-        safe_filename = f"{animation_id}{file_extension}"
-        creation_id = str(datetime.now(timezone.utc).isoformat())
-
         # Read file content
         content = await file.read()
 
+        # Generate filenames - use the same filename for both S3 and DynamoDB
+        file_extension = os.path.splitext(file.filename)[1]
+        unique_filename = f"{os.urandom(16).hex()}{file_extension}"  # This will be used for both S3 and DynamoDB
+        creation_id = str(datetime.now(timezone.utc).isoformat())
+
         try:
             # Upload to S3
+            s3_key = f"animations/{user_id}/{unique_filename}"
             s3_client.put_object(
                 Bucket=settings.S3_BUCKET_NAME,
-                Key=f"animations/{user_id}/{safe_filename}",
+                Key=s3_key,
                 Body=content,
                 ContentType=file.content_type,
                 Metadata={
@@ -108,39 +112,28 @@ async def upload_file(file: UploadFile = File(...), user_id: str = None):
                 }
             )
 
-            print(f"Uploaded to S3: {safe_filename}")
-
-            # Generate the S3 URL
-            s3_url = f"https://{settings.S3_BUCKET_NAME}.s3.amazonaws.com/animations/{user_id}/{safe_filename}"
-
             # Store metadata in DynamoDB
-            animation_data = {
-                'animation_id': animation_id,
-                'creation_id': creation_id,
-                'user_id': user_id,
-                'filename': file.filename,
-                'safe_filename': safe_filename,
-                'content_type': file.content_type,
-                's3_url': s3_url,
-                'created_at': str(datetime.now(timezone.utc).isoformat())
+            metadata = {
+                "prompt": prompt,
+                "user_id": user_id,
+                "style": style_id,
+                "creation_id": creation_id,
+                "filename": unique_filename,  # Using the same filename for both
+                "original_filename": file.filename  # Store the original filename if needed
             }
-            print(f"Storing in DynamoDB: {animation_data}")
-            table.put_item(Item=animation_data)
+
+            table.put_item(Item=metadata)
 
             return {
                 "status": "success",
-                "animation_id": animation_id,
-                "filename": safe_filename,
-                "original_name": file.filename,
-                "content_type": file.content_type,
-                "s3_url": s3_url
+                "s3_key": s3_key,
+                "filename": unique_filename
             }
 
-        except boto3.exceptions.Boto3Error as e:
-            print(e)
+        except Exception as e:
             raise HTTPException(
                 status_code=500,
-                detail=f"Error with AWS services: {str(e)}"
+                detail=f"Error uploading to S3: {str(e)}"
             )
 
     except HTTPException as he:
@@ -155,7 +148,6 @@ async def upload_file(file: UploadFile = File(...), user_id: str = None):
 @app.get("/gallery/{user_id}")
 async def get_gallery(user_id: str = None):
     try:
-        # First, query DynamoDB for the animations
         print(f"Getting gallery for user_id: {user_id}")
         if user_id:
             response = table.query(
@@ -168,49 +160,58 @@ async def get_gallery(user_id: str = None):
             response = {}
         
         animations = response.get('Items', [])
-        
-        # For each animation, get the image from S3
         print(f"Found {len(animations)} animations")
-        print(animations)
 
+        gallery_items = []
         for animation in animations:
             try:
-                # Get the object from S3
-                s3_key = f"animations/{animation['user_id']}/{animation['safe_filename']}"
+                # Use the filename directly from DynamoDB
+                s3_key = f"animations/{animation['user_id']}/{animation['filename']}"
+                print(f"Fetching S3 object with key: {s3_key}")
+                
                 s3_response = s3_client.get_object(
                     Bucket=settings.S3_BUCKET_NAME,
                     Key=s3_key
                 )
                 
-                print(f"S3 response: {s3_response}")
                 # Read the image data and convert to base64
                 image_data = s3_response['Body'].read()
                 base64_image = base64.b64encode(image_data).decode('utf-8')
                 
-                # Add the base64 image data to the animation record
-                animation['image_data'] = base64_image
-
-                print(f"Animation: {animation}")
-                
-                # Add content type for proper display
-                animation['content_type'] = s3_response['ContentType']
+                gallery_item = {
+                    "animation_id": animation.get('creation_id'),
+                    "user_id": animation['user_id'],
+                    "filename": animation['filename'],
+                    "original_filename": animation.get('original_filename'),
+                    "created_at": animation.get('creation_id'),
+                    "content_type": s3_response['ContentType'],
+                    "image_data": base64_image,
+                    "s3_url": s3_key,
+                    "prompt": animation.get('prompt'),
+                    "style": animation.get('style')
+                }
+                gallery_items.append(gallery_item)
                 
             except ClientError as e:
-                print(f"Error fetching image from S3: {str(e)}")
-                animation['image_data'] = None
-                animation['error'] = "Failed to fetch image"
+                print(f"Error fetching image from S3: {str(e)} for key {s3_key}")
+                gallery_item = {
+                    "animation_id": animation.get('creation_id'),
+                    "user_id": animation['user_id'],
+                    "filename": animation['filename'],
+                    "original_filename": animation.get('original_filename'),
+                    "created_at": animation.get('creation_id'),
+                    "content_type": None,
+                    "image_data": None,
+                    "s3_url": s3_key,
+                    "prompt": animation.get('prompt'),
+                    "style": animation.get('style'),
+                    "error": f"Failed to fetch image: {str(e)}"
+                }
+                gallery_items.append(gallery_item)
 
         return JSONResponse(content={
             "status": "success",
-            "animations": [{
-                "animation_id": anim["animation_id"],
-                "user_id": anim["user_id"],
-                "filename": anim["filename"],
-                "created_at": anim["created_at"],
-                "content_type": anim.get("content_type"),
-                "image_data": anim.get("image_data"),
-                "s3_url": anim["s3_url"]
-            } for anim in animations]
+            "animations": gallery_items
         })
 
     except Exception as e:
@@ -219,3 +220,81 @@ async def get_gallery(user_id: str = None):
             status_code=500,
             detail=f"Error retrieving animations: {str(e)}"
         )
+
+class GenerateRequest(BaseModel):
+    prompt: str
+
+@app.post("/generate/{user_id}")
+async def generate_image(
+    user_id: str,
+    style: str = Query(..., enum=["anime", "cartoon", "realistic"]),
+    body: GenerateRequest = Body(...)
+):
+    print(f"\n=== Generation Request ===")
+    print(f"User ID: {user_id}")
+    print(f"Style: {style}")
+    print(f"Prompt: {body.prompt}")
+    
+    try:
+        # Generate image
+        result = await generate_styled_image(body.prompt, style)
+        
+        if result["status"] != "success":
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to generate image: {result.get('error')}"
+            )
+            
+        # Generate filename
+        timestamp = datetime.now(timezone.utc).isoformat()
+        filename = f"{uuid.uuid4()}.png"
+        print(f"\nGenerated Filename: {filename}")
+        
+        try:
+            print("\nProcessing image data...")
+            image_data = base64.b64decode(result["image"])
+            
+            print("\nUploading to S3...")
+            s3_client.put_object(
+                Bucket=settings.S3_BUCKET_NAME,
+                Key=f"generations/{user_id}/{filename}",
+                Body=image_data,
+                ContentType="image/png",
+                Metadata={
+                    "prompt": body.prompt,
+                    "style": style,
+                    "created_at": timestamp
+                }
+            )
+            print("S3 upload successful")
+            
+            response_data = {
+                "status": "success",
+                "url": f"generations/{user_id}/{filename}",
+                "metadata": result["metadata"]
+            }
+            print("\nResponse Data:", response_data)
+            return response_data
+            
+        except Exception as e:
+            error_msg = f"Error saving to S3: {str(e)}"
+            print(f"\nError: {error_msg}")
+            print(f"Exception details: {type(e).__name__}: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=error_msg
+            )
+            
+    except HTTPException as he:
+        print(f"\nHTTP Exception: {str(he)}")
+        raise he
+    except Exception as e:
+        error_msg = f"Error in image generation: {str(e)}"
+        print(f"\nUnexpected error: {error_msg}")
+        print(f"Exception details: {type(e).__name__}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=error_msg
+        )
+    
+
