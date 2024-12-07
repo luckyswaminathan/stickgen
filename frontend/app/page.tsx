@@ -28,6 +28,13 @@ export default function Home() {
     setIsLoading(false)
   }
 
+  const handleGalleryClick = (e: React.MouseEvent) => {
+    if (!user) {
+      e.preventDefault()
+      router.push('/login')
+    }
+  }
+
   if (isLoading) {
     return <div>Loading...</div>
   }
@@ -36,36 +43,21 @@ export default function Home() {
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-80px)] relative">
       <h1 className="text-4xl font-bold mb-6 z-10">Welcome to StickGen</h1>
       <p className="text-xl mb-8 text-center max-w-2xl z-10">
-        Transform your stick figure drawings into cartoon panels with just a few clicks!
+        Transform your stick figure drawings into hilarious cartoon panels with just a few clicks!
       </p>
-      {user ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 z-10">
-          <Link href={`/upload/${user.id}`}>
-            <Button className="w-full h-16 text-lg">Upload Stick Figure</Button>
-          </Link>
-          <Link href={`/gallery/${user.id}`}>
-            <Button variant="outline" className="w-full h-16 text-lg">View Gallery</Button>
-          </Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 z-10">
-          <Link href="/login">
-            <Button className="w-full h-16 text-lg">Login to Upload</Button>
-          </Link>
-          <Link href="/login">
-            <Button variant="outline" className="w-full h-16 text-lg">Login to View Gallery</Button>
-          </Link>
-        </div>
-      )}
-      {user && (
-        <Button 
-          onClick={handleSignOut} 
-          variant="ghost" 
-          className="mt-4 z-10"
-        >
-          Sign Out
-        </Button>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 z-10">
+        <Link href={user ? `/upload/${user.id}` : '/login'}>
+          <Button className="w-full h-16 text-lg">
+            {user ? 'Upload Stick Figure' : 'Login to Upload'}
+          </Button>
+        </Link>
+        <Link href={user ? `/gallery/${user.id}` : '/login'} onClick={handleGalleryClick}>
+          <Button variant="outline" className="w-full h-16 text-lg">
+            {user ? 'View Gallery' : 'Login to View Gallery'}
+          </Button>
+        </Link>
+      </div>
+
       <div className="walking-container">
         <WalkingStickFigure />
       </div>

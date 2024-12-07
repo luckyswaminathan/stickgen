@@ -12,17 +12,16 @@ from botocore.exceptions import ClientError
 from starlette.middleware.base import BaseHTTPMiddleware
 
 app = FastAPI()
-logging.getLogger("uvicorn.access").handlers = []
-uvicorn_logger = logging.getLogger("uvicorn.access")
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
-uvicorn_logger.addHandler(handler)
+# logging.getLogger("uvicorn.access").handlers = []
+# uvicorn_logger = logging.getLogger("uvicorn.access")
+# handler = logging.StreamHandler()
+# handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+# uvicorn_logger.addHandler(handler)
 
 class IgnorePingLogsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.url.path == "/ping":
             return await call_next(request)
-        uvicorn_logger.info(f"{request.method} {request.url.path}")
         response = await call_next(request)
         return response
 class IgnorePingFilter(logging.Filter):
@@ -75,7 +74,7 @@ async def ping(id: str = Query(None), port: int = Query(None)):
         "port": port
     }
 
-@app.post("/upload")
+@app.post("/upload/{user_id}")
 async def upload_file(file: UploadFile = File(...), user_id: str = None):
     print(f"Uploading file:")
     try:
@@ -171,6 +170,8 @@ async def get_gallery(user_id: str = None):
         animations = response.get('Items', [])
         
         # For each animation, get the image from S3
+        print(f"Found {len(animations)} animations")
+        print(animations)
 
         for animation in animations:
             try:
@@ -181,12 +182,15 @@ async def get_gallery(user_id: str = None):
                     Key=s3_key
                 )
                 
+                print(f"S3 response: {s3_response}")
                 # Read the image data and convert to base64
                 image_data = s3_response['Body'].read()
                 base64_image = base64.b64encode(image_data).decode('utf-8')
                 
                 # Add the base64 image data to the animation record
                 animation['image_data'] = base64_image
+
+                print(f"Animation: {animation}")
                 
                 # Add content type for proper display
                 animation['content_type'] = s3_response['ContentType']

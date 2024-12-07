@@ -97,10 +97,15 @@ export default function Upload() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        throw new Error('No active session')
+        router.push('/login')
+        return
       }
 
-      const response = await fetch('http://127.0.0.1:8000/upload', {
+      const userId = session.user.id
+      console.log(userId)
+      console.log('uploading for userid: ' + userId)
+
+      const response = await fetch(`http://127.0.0.1:8000/upload/${userId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`
@@ -162,7 +167,7 @@ export default function Upload() {
             />
             <label
               htmlFor="file-upload"
-              className={`cursor-pointer text-yc-orange hover:text-orange-700 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`cursor-pointer text-black hover:text-orange-700 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {preview ? (
                 <img

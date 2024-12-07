@@ -89,14 +89,40 @@ module.exports = {
         rightLegSwing: {
           '0%, 100%': { transform: 'rotate(30deg)' },
           '50%': { transform: 'rotate(-30deg)' },
-        }
+        },
+        overlayShow: {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        contentCollapse: {
+          '0%': { 
+            opacity: '0',
+            transform: 'translate(-50%, 0%) scale(1)',
+          },
+          '100%': { 
+            opacity: '1',
+            transform: 'translate(-50%, -50%) scale(1)',
+          },
+        },
+        fadeIn: {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        slideUp: {
+          from: { transform: 'translateY(10px)' },
+          to: { transform: 'translateY(0)' },
+        },
       },
       animation: {
         'walk': 'walk 1s steps(4) infinite',
         'leftArmSwing': 'leftArmSwing 1s infinite',
         'rightArmSwing': 'rightArmSwing 1s infinite',
         'leftLegSwing': 'leftLegSwing 1s infinite',
-        'rightLegSwing': 'rightLegSwing 1s infinite'
+        'rightLegSwing': 'rightLegSwing 1s infinite',
+        'overlayShow': 'overlayShow 300ms ease-out',
+        'contentCollapse': 'contentCollapse 500ms ease-out',
+        'fadeIn': 'fadeIn 300ms ease-out',
+        'slideUp': 'slideUp 400ms cubic-bezier(0.16, 1, 0.3, 1)',
       }
     },
   },

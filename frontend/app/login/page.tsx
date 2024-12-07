@@ -20,10 +20,10 @@ export default function Login() {
         email,
         password,
       })
-
+      const { data: { session } } = await supabase.auth.getSession()
       if (error) throw error
 
-      router.push('/upload')
+      router.push(`/upload/${session?.user?.id}`)
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An unexpected error occurred')
     }
@@ -42,7 +42,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yc-orange focus:ring focus:ring-yc-orange focus:ring-opacity-50"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring focus:ring-black focus:ring-opacity-50"
             />
           </div>
           <div>
@@ -53,13 +53,13 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-yc-orange focus:ring focus:ring-yc-orange focus:ring-opacity-50"
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-black focus:ring focus:ring-black focus:ring-opacity-50"
             />
           </div>
           {error && <div className="text-red-500 text-sm">{error}</div>}
           <button
             type="submit"
-            className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yc-orange hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yc-orange"
+            className="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-white hover:text-black focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-black"
           >
             Login
           </button>
